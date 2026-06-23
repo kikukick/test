@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>ノート閲覧</title>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <style>
+        body { font-family: sans-serif; line-height: 1.6; max-width: 800px; margin: 0 auto; padding: 20px; }
+        pre { background: #f4f4f4; padding: 10px; border-radius: 5px; } /* コード用 */
+    </style>
+</head>
+<body>
+    <p><a href="index.html">← 教科一覧へ戻る</a></p>
+    <hr>
+    <div id="content">読み込ミング...</div>
+
+    <script>
+        const urlParams = new URLSearchParams(window.location.search);
+        const fileName = urlParams.get('file');
+
+        if (fileName) {
+            fetch(`md/${fileName}.md`)
+                .then(response => {
+                    if (!response.ok) throw new Error('ファイルが見つかりません');
+                    return response.text();
+                })
+                .then(markdownText => {
+                    document.getElementById('content').innerHTML = marked.parse(markdownText);
+                    document.title = `${fileName} のノート`;
+                })
+                .catch(error => {
+                    document.getElementById('content').innerHTML = `<p style="color:red;">エラー: ${error.message}</p>`;
+                });
+        } else {
+            document.getElementById('content').innerHTML = '<p>教科が指定されていません。</p>';
+        }
+    </script>
+</body>
+</html>
