@@ -32,7 +32,7 @@
         }
 
         /* コンテンツ */
-        .content { line-height: 1.8; font-size: 15px; }
+        .content { line-height: 1.8; font-size: 15px; position: relative; z-index: 1; }
         .content h1 { font-size: 20px; margin: 1.4rem 0 0.4rem; border-bottom: 1px solid #ddd; padding-bottom: 4px; }
         .content h2 { font-size: 17px; margin: 1.1rem 0 0.3rem; }
         .content h3 { font-size: 15px; margin: 0.8rem 0 0.2rem; }
@@ -40,7 +40,21 @@
         .content hr { border: none; border-top: 1px solid #ddd; margin: 12px 0; }
 
         /* ==テキスト== → 完全な赤（#ff0000）に変更 */
-        .red-mark { color: #ff0000; font-weight: bold; }
+        .red-mark { color: #ff0000; font-weight: bold; position: relative; }
+        /* 赤文字の上に赤い四角形を重ねて物理的に隠す */
+        .red-mark::after {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: #ff0000;
+            opacity: 0;
+            z-index: 10;
+            pointer-events: none;
+            transition: opacity 0.15s;
+        }
+        .red-mark.covered::after {
+            opacity: 1;
+        }
 
         /* 赤シート本体 */
         .red-sheet {
@@ -49,7 +63,7 @@
             border-radius: 4px;
             border: 1.5px solid rgba(160,0,0,0.4);
             cursor: grab;
-            z-index: 100;
+            z-index: 1000; /* コンテンツより高いz-indexで確実に上に重ねる */
             user-select: none;
             touch-action: none;
             
@@ -121,8 +135,10 @@ function addSheet() {
     const sheet = document.createElement('div');
     sheet.className = 'red-sheet';
 
-    const startX = 30 + (sheetCount % 4) * 20;
-    const startY = 80 + (sheetCount % 5) * 40;
+    // ページの位置を取得して、そのオフセットを考慮
+    const pageRect = page.getBoundingClientRect();
+    const startX = pageRect.left + 30 + (sheetCount % 4) * 20;
+    const startY = pageRect.top + 80 + (sheetCount % 5) * 40;
 
     sheet.style.cssText =
         `left:${startX}px;top:${startY}px;width:300px;height:36px;` +
@@ -134,7 +150,7 @@ function addSheet() {
         <div class="resize-handle"></div>
     `;
 
-    page.appendChild(sheet);
+    document.body.appendChild(sheet);
     makeDraggable(sheet);
     makeResizable(sheet);
 }
@@ -156,11 +172,11 @@ function makeDraggable(el) {
     function onMove(e) {
         e.preventDefault();
         const pt = e.touches ? e.touches[0] : e;
-        const page = document.getElementById('page');
-        const maxX = page.offsetWidth - el.offsetWidth;
-        const maxY = page.scrollHeight - el.offsetHeight;
+        const maxX = window.innerWidth - el.offsetWidth;
+        const maxY = window.innerHeight - el.offsetHeight;
         el.style.left = Math.max(0, Math.min(maxX, ox + pt.clientX - sx)) + 'px';
         el.style.top  = Math.max(0, Math.min(maxY, oy + pt.clientY - sy)) + 'px';
+        updateCoveredText();
     }
     function onUp() {
         el.style.cursor = 'grab';
@@ -191,6 +207,7 @@ function makeResizable(el) {
         const pt = e.touches ? e.touches[0] : e;
         el.style.width  = Math.max(60,  sw + pt.clientX - sx) + 'px';
         el.style.height = Math.max(20, sh + pt.clientY - sy) + 'px';
+        updateCoveredText();
     }
     function onUp() {
         document.removeEventListener('mousemove', onMove);
@@ -200,6 +217,35 @@ function makeResizable(el) {
     }
     rh.addEventListener('mousedown', onDown);
     rh.addEventListener('touchstart', onDown, {passive: false});
+}
+
+/* 赤シートと赤文字の重なりを検知 */
+function updateCoveredText() {
+    const sheets = document.querySelectorAll('.red-sheet');
+    const redMarks = document.querySelectorAll('.red-mark');
+    
+    redMarks.forEach(mark => {
+        let isCovered = false;
+        const markRect = mark.getBoundingClientRect();
+        
+        sheets.forEach(sheet => {
+            const sheetRect = sheet.getBoundingClientRect();
+            
+            // 矩形が重なっているかチェック
+            if (!(markRect.right < sheetRect.left || 
+                  markRect.left > sheetRect.right || 
+                  markRect.bottom < sheetRect.top || 
+                  markRect.top > sheetRect.bottom)) {
+                isCovered = true;
+            }
+        });
+        
+        if (isCovered) {
+            mark.classList.add('covered');
+        } else {
+            mark.classList.remove('covered');
+        }
+    });
 }
 
 /* MD読み込み */
@@ -221,6 +267,8 @@ if (fileName) {
             document.getElementById('content').innerHTML = processMarkdown(md);
             document.title = `${fileName} のノート`;
             addSheet();
+            // 初期状態の重なりチェック
+            setTimeout(updateCoveredText, 100);
         })
         .catch(e => {
             document.getElementById('content').innerHTML =
