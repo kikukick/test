@@ -39,22 +39,26 @@
         .content blockquote { border-left: 3px solid #ccc; padding-left: 12px; color: #555; margin: 4px 0; }
         .content hr { border: none; border-top: 1px solid #ddd; margin: 12px 0; }
 
-        /* ==テキスト== → 完全な赤（#ff0000）に変更 */
-        .red-mark { color: #ff0000; font-weight: bold; }
+        /* 赤文字は常にシート色と完全一致 */
+        .red-mark {
+            color: rgb(255,0,0);
+            font-weight: bold;
+        }
 
         /* 赤シート本体 */
         .red-sheet {
             position: absolute;
-            background: rgba(255, 0, 0, 0.85); /* ベースを純粋な赤に */
+            background: rgb(255,0,0);
+            opacity: 0.85;
             border-radius: 4px;
             border: 1.5px solid rgba(160,0,0,0.4);
             cursor: grab;
             z-index: 100;
             user-select: none;
             touch-action: none;
-            
-            /* 【重要】乗算ブレンドを適用。これで下の赤文字と完全に色が同化します */
-            mix-blend-mode: multiply; 
+
+            /* 同色化。透明度変更時も赤文字は常に同じ色に見える */
+            mix-blend-mode: screen;
         }
         .red-sheet:active { cursor: grabbing; }
         
@@ -111,7 +115,7 @@ function updateOpacity(val) {
     globalOpacity = val / 100;
     document.getElementById('opacity-val').textContent = val + '%';
     document.querySelectorAll('.red-sheet').forEach(s => {
-        s.style.background = `rgba(255,0,0,${globalOpacity})`;
+        s.style.opacity = globalOpacity;
     });
 }
 
@@ -126,7 +130,7 @@ function addSheet() {
 
     sheet.style.cssText =
         `left:${startX}px;top:${startY}px;width:300px;height:36px;` +
-        `background:rgba(255,0,0,${globalOpacity});`;
+        `opacity:${globalOpacity};`;
 
     sheet.innerHTML = `
         <span class="sheet-label">シート${sheetCount}</span>
