@@ -63,7 +63,7 @@
             user-select: none;
             touch-action: none;
             
-            opacity: var(--sheet-opacity, 0.85);
+            opacity: var(--sheet-opacity, 0.50);
         }
         .red-sheet:active { cursor: grabbing; }
         
@@ -113,7 +113,7 @@
 
 <script>
 let sheetCount = 0;
-let globalOpacity = 0.85;
+let globalOpacity = 0.50;
 
 function updateOpacity(val) {
     globalOpacity = val / 100;
