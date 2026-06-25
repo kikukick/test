@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <title>ノート閲覧</title>
-    <script src="[https://cdn.jsdelivr.net/npm/marked/marked.min.js](https://cdn.jsdelivr.net/npm/marked/marked.min.js)"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body { font-family: sans-serif; color: #111; background: #fff; }
@@ -39,42 +39,40 @@
         .content blockquote { border-left: 3px solid #ccc; padding-left: 12px; color: #555; margin: 4px 0; }
         .content hr { border: none; border-top: 1px solid #ddd; margin: 12px 0; }
 
-        /* コードブロックや等幅テキストの背景 */
-        .content pre, .content code { background: #f5f5f5; padding: 2px 6px; border-radius: 4px; font-family: monospace; }
-        .content pre { padding: 10px; overflow-x: auto; line-height: 1.5; }
+        /* ==テキスト== → 完全な赤（#ff0000）に変更 */
+        .red-mark { color: #ff0000; font-weight: bold; }
 
-        /* 【重要】赤文字の色を純粋な赤に固定 */
-        .red-mark { color: #ff0000 !important; font-weight: bold; }
-
-        /* 【重要】赤シート本体（mix-blend-mode で完全に同化させる） */
+        /* 赤シート本体 */
         .red-sheet {
             position: absolute;
-            background: rgb(255, 0, 0); /* 完全に同じ純色の赤 */
+            background: rgba(255, 0, 0, 0.85); /* ベースを純粋な赤に */
             border-radius: 4px;
             border: 1.5px solid rgba(160,0,0,0.4);
             cursor: grab;
             z-index: 100;
             user-select: none;
             touch-action: none;
-            /* これを追加することで、下の赤文字のフチまで完全に透過させて消します */
-            mix-blend-mode: darken; 
+            
+            /* 【重要】乗算ブレンドを適用。これで下の赤文字と完全に色が同化します */
+            mix-blend-mode: multiply; 
         }
         .red-sheet:active { cursor: grabbing; }
         
-        /* シートの中のテキスト（ブレンドモードの影響を受けないように隔離） */
+        /* ブレンドモードの影響で文字が見えなくなるのを防ぐため、ラベルやボタンのスタイルを調整 */
         .sheet-label {
             position: absolute; top: 3px; left: 8px;
-            font-size: 10px; color: rgba(255,255,255,0.8);
+            font-size: 10px; color: #fff;
+            opacity: 0.7;
             pointer-events: none;
         }
         .del-btn {
             position: absolute; top: 2px; right: 2px;
             width: 14px; height: 14px;
-            background: rgba(0,0,0,0.4); border: none; border-radius: 50%;
-            color: #fff; font-size: 10px; cursor: pointer;
+            background: #fff; border: none; border-radius: 50%;
+            color: #ff0000; font-size: 10px; font-weight: bold; cursor: pointer;
             display: flex; align-items: center; justify-content: center;
         }
-        .del-btn:hover { background: rgba(0,0,0,0.7); }
+        .del-btn:hover { background: #eee; }
         .resize-handle {
             position: absolute; bottom: 0; right: 0;
             width: 16px; height: 16px;
@@ -84,8 +82,8 @@
         .resize-handle::after {
             content: ''; display: block;
             width: 8px; height: 8px;
-            border-right: 2px solid rgba(255,255,255,0.7);
-            border-bottom: 2px solid rgba(255,255,255,0.7);
+            border-right: 2px solid #fff;
+            border-bottom: 2px solid #fff;
         }
     </style>
 </head>
@@ -93,10 +91,10 @@
 
 <div class="toolbar">
     <button class="add-btn" onclick="addSheet()">＋ 赤シートを追加</button>
-    <label>透明度</label>
-    <input type="range" id="opacity-sl" min="30" max="100" value="95"
+    <label>濃さ（不透明度）</label>
+    <input type="range" id="opacity-sl" min="40" max="100" value="85"
            step="1" oninput="updateOpacity(this.value)">
-    <span class="val" id="opacity-val">95%</span>
+    <span class="val" id="opacity-val">85%</span>
     <span class="hint">ドラッグで移動 ／ 右下コーナーでリサイズ</span>
 </div>
 
@@ -107,13 +105,13 @@
 
 <script>
 let sheetCount = 0;
-let globalOpacity = 0.95;
+let globalOpacity = 0.85;
 
 function updateOpacity(val) {
     globalOpacity = val / 100;
     document.getElementById('opacity-val').textContent = val + '%';
     document.querySelectorAll('.red-sheet').forEach(s => {
-        s.style.opacity = globalOpacity; // mix-blend-modeが効くように要素自体の透明度を変える
+        s.style.background = `rgba(255,0,0,${globalOpacity})`;
     });
 }
 
@@ -127,8 +125,8 @@ function addSheet() {
     const startY = 80 + (sheetCount % 5) * 40;
 
     sheet.style.cssText =
-        `left:${startX}px;top:${startY}px;width:300px;height:40px;` +
-        `opacity:${globalOpacity};`;
+        `left:${startX}px;top:${startY}px;width:300px;height:36px;` +
+        `background:rgba(255,0,0,${globalOpacity});`;
 
     sheet.innerHTML = `
         <span class="sheet-label">シート${sheetCount}</span>
@@ -204,23 +202,13 @@ function makeResizable(el) {
     rh.addEventListener('touchstart', onDown, {passive: false});
 }
 
-/* MD読み込み・置換処理 */
+/* MD読み込み */
 function processMarkdown(md) {
-    // 1. 通常の ==テキスト== 構文を一時マーク
-    let processed = md.replace(/==([\s\S]*?)==/g, (_, t) => `<RMSTART>${t}<RMEND>`);
-    
-    // 2. コードブロック内でも機能する [R:テキスト] 構文を一時マーク
-    processed = processed.replace(/\[R:([\s\S]*?)\]/g, (_, t) => `<RMSTART>${t}<RMEND>`);
-
-    // 3. Marked.js でHTMLに変換（この段階でコードブロック内のHTMLタグがエスケープされるのを防ぐため、あとで戻します）
-    let html = marked.parse(processed);
-
-    // 4. エスケープされてしまったタグ文字列（&lt;RMSTART&gt;など）を正規のHTMLタグに一括置換
-    html = html.replace(/&lt;RMSTART&gt;/g, '<span class="red-mark">');
-    html = html.replace(/&lt;RMEND&gt;/g, '</span>');
+    const withMarks = md.replace(/==([\s\S]*?)==/g,
+        (_, t) => `<RMSTART>${t}<RMEND>`);
+    let html = marked.parse(withMarks);
     html = html.replace(/<RMSTART>/g, '<span class="red-mark">');
     html = html.replace(/<\/RMEND>/g, '</span>');
-
     return html;
 }
 
